@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ subTasks: fallbackPlan(trimmed) });
     }
 
-    const sanitized: RawSubTask[] = candidate.slice(0, 5).map((task, index) => ({
+    const sanitized: RawSubTask[] = candidate.slice(0, 5).map((task: any, index: number) => ({
       id: typeof task.id === "string" && task.id.trim()
         ? task.id
         : `step-${index + 1}`,
