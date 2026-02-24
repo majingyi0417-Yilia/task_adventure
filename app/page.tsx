@@ -672,12 +672,12 @@ ${fullTask}
   };
 
   return (
-    <div className="min-h-screen bg-[#f5ead7] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.05)_1px,transparent_0)] bg-[length:18px_18px] text-stone-900">
+    <div className="min-h-screen bg-[#e8f5f0] bg-[radial-gradient(circle_at_1px_1px,rgba(20,184,166,0.08)_1px,transparent_0)] bg-[length:20px_20px] text-stone-900">
       <main className="mx-auto flex min-h-screen max-w-7xl flex-row gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {/* 左侧主内容区域 */}
         <div className="flex-1 flex flex-col gap-6 min-w-0">
           <header className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-50/80 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm ring-1 ring-amber-200/70 backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full bg-teal-50/80 px-3 py-1 text-xs font-medium text-teal-900 shadow-sm ring-1 ring-teal-200/70 backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
               任务冒险伴侣 · 在温暖的篝火旁展开一日冒险
             </div>
@@ -707,133 +707,75 @@ ${fullTask}
           )}
         </header>
 
-        <section className="rounded-2xl bg-[#f3e2c6]/90 p-3 shadow-[0_18px_40px_rgba(146,88,36,0.22)] ring-1 ring-amber-300/70 backdrop-blur-sm sm:p-4">
-          <div className="space-y-3">
-            <div className="mb-2">
-              <span className="mb-1 block text-xs font-semibold tracking-[0.16em] text-amber-900/80">
-                启程：定义你的冒险任务
+        <section className="rounded-xl bg-[#e6f5f0]/80 p-2 shadow-md ring-1 ring-teal-300/50">
+          <div className="space-y-1.5">
+            <div className="mb-1">
+              <span className="text-[10px] font-medium text-teal-900/70">
+                新建任务
               </span>
             </div>
             
-            {/* 任务输入表单 - 紧凑布局 */}
-            <div className="space-y-2" onKeyDown={handleKeyDown}>
+            {/* 任务输入表单 - 小卡片布局 */}
+            <div className="space-y-1" onKeyDown={handleKeyDown}>
               {/* 任务简述 */}
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
-                  任务简述
-                </span>
+              <input
+                value={taskBrief}
+                onChange={(e) => setTaskBrief(e.target.value)}
+                placeholder="写下今天的任务..."
+                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+              />
+              
+              {/* 期望结果 */}
+              <input
+                value={expectedResult}
+                onChange={(e) => setExpectedResult(e.target.value)}
+                placeholder="期望结果（选填）"
+                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+              />
+              
+              {/* DDL、场景、时间并排 */}
+              <div className="flex gap-1">
                 <input
-                  value={taskBrief}
-                  onChange={(e) => setTaskBrief(e.target.value)}
-                  placeholder="例如：写完毕业论文第一章初稿"
-                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  value={ddl}
+                  onChange={(e) => setDdl(e.target.value)}
+                  placeholder="DDL"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
                 />
-              </div>
-              
-              {/* 期望结果 - 紧凑行 */}
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
-                  期望结果
-                </span>
                 <input
-                  value={expectedResult}
-                  onChange={(e) => setExpectedResult(e.target.value)}
-                  placeholder="今晚前完成可以发出的版本"
-                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  value={background}
+                  onChange={(e) => setBackground(e.target.value)}
+                  placeholder="场景"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
                 />
-              </div>
-              
-              {/* DDL 和 背景并排 */}
-              <div className="flex gap-2">
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[40px]">
-                    DDL
-                  </span>
-                  <input
-                    value={ddl}
-                    onChange={(e) => setDdl(e.target.value)}
-                    placeholder="2025-03-01 23:00"
-                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                  />
-                </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[40px]">
-                    场景
-                  </span>
-                  <input
-                    value={background}
-                    onChange={(e) => setBackground(e.target.value)}
-                    placeholder="学术/编程/工作等"
-                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-              
-              {/* 当前进度 - 紧凑行 */}
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
-                  当前进度
-                </span>
                 <input
-                  value={currentProgress}
-                  onChange={(e) => setCurrentProgress(e.target.value)}
-                  placeholder="未开始/已有资料/进行到第几步"
-                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  value={timeBudget}
+                  onChange={(e) => setTimeBudget(e.target.value)}
+                  placeholder="时间"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
                 />
-              </div>
-              
-              {/* 时间预算和偏好并排 */}
-              <div className="flex gap-2">
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[50px]">
-                    时间
-                  </span>
-                  <input
-                    value={timeBudget}
-                    onChange={(e) => setTimeBudget(e.target.value)}
-                    placeholder="今天可投入X小时"
-                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                  />
-                </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[50px]">
-                    偏好
-                  </span>
-                  <input
-                    value={preference}
-                    onChange={(e) => setPreference(e.target.value)}
-                    placeholder="先易后难/先清障碍等"
-                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                  />
-                </div>
               </div>
             </div>
             
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1 text-[10px] font-medium text-amber-800/80">
-                <span className="rounded border border-amber-300/80 bg-amber-100/60 px-1.5 py-0.5 text-[9px] shadow-sm">
-                  Ctrl + Enter
-                </span>
-                <span>快速启程</span>
-              </div>
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[9px] text-teal-800/60">Ctrl+Enter 快速提交</span>
               
               <button
                 type="button"
                 onClick={handleStartAdventure}
                 disabled={isPlanning || !taskBrief.trim()}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2 text-sm font-semibold text-amber-950 shadow-[0_14px_40px_rgba(180,83,9,0.55)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(180,83,9,0.75)] active:translate-y-[1px] active:shadow-[0_10px_28px_rgba(180,83,9,0.65)] disabled:cursor-wait disabled:opacity-80"
+                className="rounded-lg bg-gradient-to-r from-teal-400 to-teal-500 px-2 py-1 text-[10px] font-medium text-teal-900 shadow-sm transition hover:from-teal-500 hover:to-teal-600 disabled:opacity-50"
               >
-                {isPlanning ? "构思中..." : "出发！"}
+                {isPlanning ? "构思中..." : "出发"}
               </button>
             </div>
           </div>
         </section>
 
-        <section className="flex-1 rounded-3xl bg-[#f3e2c6]/95 p-4 shadow-[0_22px_60px_rgba(120,72,32,0.55)] ring-1 ring-amber-500/40 backdrop-blur-sm sm:p-6 lg:p-8">
+        <section className="flex-1 rounded-3xl bg-[#e6f5f0]/95 p-4 shadow-[0_22px_60px_rgba(120,72,32,0.55)] ring-1 ring-teal-500/40 backdrop-blur-sm sm:p-6 lg:p-8">
           {!currentAdventure || !currentAdventure.taskBrief?.trim() ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center text-stone-600">
-              <div className="flex items-center gap-2 rounded-full bg-[#f7e7c8] px-3 py-1 text-xs font-medium text-amber-900/80 ring-1 ring-dashed ring-amber-400/70 shadow-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
+              <div className="flex items-center gap-2 rounded-full bg-[#f0fdfa] px-3 py-1 text-xs font-medium text-teal-900/80 ring-1 ring-dashed ring-teal-400/70 shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
                 在上方填写任务信息，然后点击「集结队伍，出发！」
               </div>
               <p className="max-w-md text-sm">
@@ -844,7 +786,7 @@ ${fullTask}
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-semibold tracking-[0.16em] text-amber-900/70">
+                  <div className="text-xs font-semibold tracking-[0.16em] text-teal-900/70">
                     今日主线 · MAIN STORY
                   </div>
                   <div className="mt-1 text-lg font-semibold text-stone-950 sm:text-xl">
@@ -852,9 +794,9 @@ ${fullTask}
                   </div>
                 </div>
                 {subTasks.length > 0 && (
-                  <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-100/90 via-amber-50/90 to-emerald-50/90 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-300/70 shadow-md shadow-amber-200/70 sm:text-sm">
+                  <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-teal-100/90 via-teal-50/90 to-emerald-50/90 px-3 py-2 text-xs text-teal-900 ring-1 ring-teal-300/70 shadow-md shadow-teal-200/70 sm:text-sm">
                     <div className="relative h-8 w-8">
-                      <div className="absolute inset-0 rounded-full bg-amber-200/70 shadow-[0_0_15px_rgba(252,211,77,0.85)]" />
+                      <div className="absolute inset-0 rounded-full bg-teal-200/70 shadow-[0_0_15px_rgba(252,211,77,0.85)]" />
                       <svg
                         viewBox="0 0 36 36"
                         className="-rotate-90 overflow-visible"
@@ -889,7 +831,7 @@ ${fullTask}
                           className="transition-[stroke-dashoffset] duration-500 ease-out drop-shadow-[0_0_10px_rgba(250,204,21,0.9)]"
                         />
                       </svg>
-                      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-amber-950">
+                      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-teal-950">
                         {completionRate}%
                       </span>
                     </div>
@@ -897,7 +839,7 @@ ${fullTask}
                       <div className="font-semibold">
                         冒险里程碑 · {completionRate}%
                       </div>
-                      <div className="text-[11px] text-amber-900/80">
+                      <div className="text-[11px] text-teal-900/80">
                         每完成一个子任务，卷轴上的路径都会亮起一小段金光。
                       </div>
                     </div>
@@ -905,52 +847,52 @@ ${fullTask}
                 )}
               </div>
 
-              {/* 任务详情展示 */}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {/* 任务详情展示 - 紧凑小卡片，一行显示 */}
+              <div className="flex flex-wrap gap-1">
                 {expectedResult && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">期望结果</div>
-                    <div className="mt-1 text-sm text-stone-800">{expectedResult}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">期望:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{expectedResult}</span>
                   </div>
                 )}
                 {ddl && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">DDL</div>
-                    <div className="mt-1 text-sm text-stone-800">{ddl}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">截止:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{ddl}</span>
                   </div>
                 )}
                 {background && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">背景/场景</div>
-                    <div className="mt-1 text-sm text-stone-800">{background}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">场景:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{background}</span>
                   </div>
                 )}
                 {currentProgress && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">当前进度</div>
-                    <div className="mt-1 text-sm text-stone-800">{currentProgress}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">进度:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{currentProgress}</span>
                   </div>
                 )}
                 {timeBudget && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">时间预算</div>
-                    <div className="mt-1 text-sm text-stone-800">{timeBudget}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">时间:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{timeBudget}</span>
                   </div>
                 )}
                 {preference && (
-                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
-                    <div className="text-xs font-medium text-amber-900/80">特别偏好</div>
-                    <div className="mt-1 text-sm text-stone-800">{preference}</div>
+                  <div className="rounded-lg bg-teal-50/60 px-2 py-1 whitespace-nowrap">
+                    <span className="text-[9px] font-medium text-teal-900/70">偏好:</span>
+                    <span className="ml-1 text-[10px] text-stone-700">{preference}</span>
                   </div>
                 )}
               </div>
 
-              <div className="relative mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-                <div className="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-[#f8e7c7] via-[#f2ddbc] to-[#e9cfab] p-3 ring-1 ring-amber-600/40 shadow-inner shadow-amber-900/20 sm:h-72 lg:h-80">
-                  <div className="pointer-events-none absolute inset-3 rounded-[1.75rem] border border-dashed border-amber-700/50" />
+              <div className="relative mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+                <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-[#f8e7c7] via-[#f2ddbc] to-[#e9cfab] p-3 ring-1 ring-teal-600/40 shadow-inner shadow-teal-900/20 sm:h-80 lg:h-96">
+                  <div className="pointer-events-none absolute inset-3 rounded-[1.75rem] border border-dashed border-teal-700/50" />
                   <svg
                     viewBox="0 0 400 260"
-                    className="absolute inset-4 h-[calc(100%-32px)] w-[calc(100%-32px)] text-amber-900/80"
+                    className="absolute inset-4 h-[calc(100%-32px)] w-[calc(100%-32px)] text-teal-900/80"
                   >
                     <defs>
                       <linearGradient
@@ -960,7 +902,7 @@ ${fullTask}
                         x2="0%"
                         y2="100%"
                       >
-                        <stop offset="0%" stopColor="#fef3c7" />
+                        <stop offset="0%" stopColor="#d1fae5" />
                         <stop offset="100%" stopColor="#fed7aa" />
                       </linearGradient>
                     </defs>
@@ -1026,7 +968,7 @@ ${fullTask}
                               <>
                                 <circle
                                   r="18"
-                                  fill={task.completed ? "#bbf7d0" : "#fef3c7"}
+                                  fill={task.completed ? "#bbf7d0" : "#d1fae5"}
                                   stroke={task.completed ? "#15803d" : "#b45309"}
                                   strokeWidth="2.5"
                                 />
@@ -1120,14 +1062,14 @@ ${fullTask}
                     })}
                   </svg>
 
-                  <div className="pointer-events-none absolute inset-x-6 bottom-3 flex items-center justify-between text-[10px] font-medium text-amber-900/70">
+                  <div className="pointer-events-none absolute inset-x-6 bottom-3 flex items-center justify-between text-[10px] font-medium text-teal-900/70">
                     <span>营地 · 故事的起点</span>
                     <span>迷雾森林</span>
                     <span>宝箱 · 今日终点</span>
                   </div>
                 </div>
 
-                <div className="space-y-3 rounded-2xl bg-[#f6e7cf]/90 p-4 ring-1 ring-amber-400/70 shadow-md shadow-amber-900/25 sm:p-5">
+                <div className="space-y-3 rounded-2xl bg-[#f1fdf9]/90 p-4 ring-1 ring-teal-400/70 shadow-md shadow-teal-900/25 sm:p-5">
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
                       冒险步骤总览
@@ -1138,7 +1080,7 @@ ${fullTask}
                           type="button"
                           onClick={handleReplanAdventure}
                           disabled={isReplanning || isPlanning}
-                          className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-1.5 text-xs font-semibold text-amber-950 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-teal-400 to-orange-400 px-2.5 py-1.5 text-xs font-semibold text-teal-950 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
                         >
                           {isReplanning ? (
                             <>
@@ -1174,7 +1116,7 @@ ${fullTask}
                               ),
                             );
                           }}
-                          className="text-xs font-medium text-amber-800 underline-offset-2 hover:underline"
+                          className="text-xs font-medium text-teal-800 underline-offset-2 hover:underline"
                         >
                           重置
                         </button>
@@ -1240,7 +1182,7 @@ ${fullTask}
                     return (
                       <div className="space-y-2">
                         {/* 当前任务高亮显示 */}
-                        <div className={`rounded-xl border-2 ${isPreviewing ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50' : 'border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50'} p-4 shadow-lg`}>
+                        <div className={`rounded-xl border-2 ${isPreviewing ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50' : 'border-teal-400 bg-gradient-to-br from-teal-50 to-orange-50'} p-4 shadow-lg`}>
                           {/* 提示：预览中或当前任务 */}
                           {isPreviewing && (
                             <div className="mb-2 flex items-center justify-between">
@@ -1257,7 +1199,7 @@ ${fullTask}
                           )}
                           {!isPreviewing && (
                             <div className="mb-2 flex items-center gap-2">
-                              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 text-[11px] font-bold text-amber-900 animate-pulse">
+                              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-teal-400 text-[11px] font-bold text-teal-900 animate-pulse">
                                 当前
                               </span>
                               <span className="text-[15px] font-bold text-stone-900">
@@ -1287,12 +1229,12 @@ ${fullTask}
                           </div>
                           {/* 只有在非预览模式下才显示标记完成按钮 */}
                           {!isPreviewing && (
-                            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 font-semibold text-amber-900 transition hover:bg-amber-500">
+                            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-teal-400 px-4 py-2 font-semibold text-teal-900 transition hover:bg-teal-500">
                               <input
                                 type="checkbox"
                                 checked={currentTask.completed}
                                 onChange={() => handleToggleSubTask(currentTask.id)}
-                                className="h-5 w-5 rounded border-amber-500 text-emerald-600 accent-emerald-600"
+                                className="h-5 w-5 rounded border-teal-500 text-emerald-600 accent-emerald-600"
                               />
                               标记完成
                             </label>
@@ -1330,12 +1272,12 @@ ${fullTask}
         {/* 右侧边栏 - 历史冒险卷轴 */}
         <div className="w-56 flex-shrink-0 hidden lg:block">
           {adventures.length > 0 && (
-            <div className="sticky top-6 space-y-3 rounded-2xl bg-[#f3e2c6]/80 p-3 ring-1 ring-amber-300/70">
-              <div className="flex items-center justify-between text-[11px] font-medium text-amber-900/80">
+            <div className="sticky top-6 space-y-3 rounded-2xl bg-[#e6f5f0]/80 p-3 ring-1 ring-teal-300/70">
+              <div className="flex items-center justify-between text-[11px] font-medium text-teal-900/80">
                 <span>📜 冒险卷轴</span>
                 <button
                   type="button"
-                  className="rounded-full border border-amber-300/80 bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-900 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                  className="rounded-full border border-teal-300/80 bg-teal-100/70 px-2 py-0.5 text-[10px] font-semibold text-teal-900 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
                   onClick={() => {
                     const nowIso = new Date().toISOString();
                     const id = createAdventureId();
@@ -1397,19 +1339,19 @@ ${fullTask}
                         onClick={() => setCurrentId(adv.id)}
                         className={`w-full flex flex-col justify-between rounded-xl border px-3 py-2 text-left text-[11px] shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(146,88,36,0.45)] ${
                           isActive
-                            ? "border-amber-500 bg-[#fef3c7]"
-                            : "border-amber-200/80 bg-[#f8e7c7]/90"
+                            ? "border-teal-500 bg-[#d1fae5]"
+                            : "border-teal-200/80 bg-[#f8e7c7]/90"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className="font-semibold text-amber-900 line-clamp-1 flex-1">
+                          <span className="font-semibold text-teal-900 line-clamp-1 flex-1">
                             {shortTitle}
                           </span>
-                          <span className="rounded bg-amber-100/80 px-1 py-0.5 text-[10px] text-amber-900">
+                          <span className="rounded bg-teal-100/80 px-1 py-0.5 text-[10px] text-teal-900">
                             {rate}%
                           </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between text-[10px] text-amber-900/80">
+                        <div className="mt-1 flex items-center justify-between text-[10px] text-teal-900/80">
                           <span>{dateLabel}</span>
                           <span>
                             {adv.subTasks.filter((t) => t.completed).length}/
