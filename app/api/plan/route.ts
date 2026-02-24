@@ -117,7 +117,7 @@ function parseAndSanitize(content: string, mainTask: string): RawSubTask[] | nul
   const candidate = Array.isArray(parsed?.subTasks) ? parsed.subTasks : [];
   if (candidate.length === 0) return null;
 
-  const sanitized: RawSubTask[] = (candidate as Record<string, unknown>[]).slice(0, 6).map((task, index) => ({
+  const sanitized: RawSubTask[] = candidate.slice(0, 6).map((task: Record<string, unknown>, index: number) => ({
     id:
       typeof task.id === "string" && task.id.trim()
         ? task.id

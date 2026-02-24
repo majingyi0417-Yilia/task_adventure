@@ -17,6 +17,13 @@ type Adventure = {
   subTasks: SubTask[];
   createdAt: string;
   updatedAt: string;
+  taskBrief?: string;
+  expectedResult?: string;
+  ddl?: string;
+  background?: string;
+  currentProgress?: string;
+  timeBudget?: string;
+  preference?: string;
 };
 
 type AdventureState = {
@@ -80,10 +87,22 @@ const defaultSubTasks: SubTask[] = [
   },
 ];
 
+const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || "";
+const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+
 export default function Home() {
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isPlanning, setIsPlanning] = useState(false);
+  
+  // 各个输入框的状态
+  const [taskBrief, setTaskBrief] = useState("");
+  const [expectedResult, setExpectedResult] = useState("");
+  const [ddl, setDdl] = useState("");
+  const [background, setBackground] = useState("");
+  const [currentProgress, setCurrentProgress] = useState("");
+  const [timeBudget, setTimeBudget] = useState("");
+  const [preference, setPreference] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -107,6 +126,13 @@ export default function Home() {
             })),
             createdAt: adv.createdAt ?? new Date().toISOString(),
             updatedAt: adv.updatedAt ?? new Date().toISOString(),
+            taskBrief: adv.taskBrief ?? "",
+            expectedResult: adv.expectedResult ?? "",
+            ddl: adv.ddl ?? "",
+            background: adv.background ?? "",
+            currentProgress: adv.currentProgress ?? "",
+            timeBudget: adv.timeBudget ?? "",
+            preference: adv.preference ?? "",
           }),
         );
         setAdventures(restoredAdventures);
@@ -138,6 +164,13 @@ export default function Home() {
           subTasks: restoredSubTasks,
           createdAt: nowIso,
           updatedAt: nowIso,
+          taskBrief: "",
+          expectedResult: "",
+          ddl: "",
+          background: "",
+          currentProgress: "",
+          timeBudget: "",
+          preference: "",
         };
         setAdventures([adv]);
         setCurrentId(id);
@@ -147,19 +180,55 @@ export default function Home() {
     }
   }, []);
 
+  // 当 currentAdventure 变化时，更新各个输入框的值
+  const currentAdventure = useMemo(
+    () => adventures.find((a) => a.id === currentId) ?? null,
+    [adventures, currentId],
+  );
+
+  useEffect(() => {
+    if (currentAdventure) {
+      setTaskBrief(currentAdventure.taskBrief || "");
+      setExpectedResult(currentAdventure.expectedResult || "");
+      setDdl(currentAdventure.ddl || "");
+      setBackground(currentAdventure.background || "");
+      setCurrentProgress(currentAdventure.currentProgress || "");
+      setTimeBudget(currentAdventure.timeBudget || "");
+      setPreference(currentAdventure.preference || "");
+    }
+  }, [currentAdventure]);
+
+  // 保存状态到 localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    // 更新当前 adventure 的数据
+    if (currentAdventure) {
+      setAdventures(prev =>
+        prev.map(adv =>
+          adv.id === currentAdventure.id
+            ? {
+                ...adv,
+                taskBrief,
+                expectedResult,
+                ddl,
+                background,
+                currentProgress,
+                timeBudget,
+                preference,
+                updatedAt: new Date().toISOString(),
+              }
+            : adv
+        )
+      );
+    }
+    
     const state: AdventureState = {
       currentId,
       adventures,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [adventures, currentId]);
-
-  const currentAdventure = useMemo(
-    () => adventures.find((a) => a.id === currentId) ?? null,
-    [adventures, currentId],
-  );
+  }, [taskBrief, expectedResult, ddl, background, currentProgress, timeBudget, preference, adventures, currentId, currentAdventure]);
 
   const mainTask = currentAdventure?.title ?? "";
   const subTasks = currentAdventure?.subTasks ?? [];
@@ -180,8 +249,26 @@ export default function Home() {
   }, [subTasks]);
 
   const handleStartAdventure = async () => {
-    const trimmed = mainTask.trim();
-    if (!trimmed) return;
+    if (!taskBrief.trim()) return;
+
+    // 构建完整的任务描述
+    const fullTask = `【任务简述】${taskBrief}
+【期望结果】${expectedResult}
+【DDL】${ddl}
+【背景/场景】${background}
+【当前进度】${currentProgress}
+【时间预算】${timeBudget}
+【特别偏好】${preference}`;
+
+    // 构建拆解原则
+    const breakDownPrinciples = `【拆解原则】
+1. 每个步骤都应该简单易行，可以在15-30分钟内完成
+2. 从最简单的步骤开始，帮助用户快速建立成就感
+3. 避免复杂的、需要长时间专注的任务
+4. 根据任务复杂度自然确定步骤数量（通常3-8个）
+5. 考虑用户的【时间预算】和【特别偏好】
+6. 每个步骤都要具体、可操作、容易上手
+7. 为每个步骤分配合理的权重（1-3），简单的步骤权重为1，中等为2，稍难为3`;
 
     // 如果当前没有冒险卷轴，为今天新建一卷
     let adventureId = currentId;
@@ -190,21 +277,39 @@ export default function Home() {
       const id = createAdventureId();
       const newAdventure: Adventure = {
         id,
-        title: trimmed,
+        title: taskBrief,
         dateKey: getTodayKey(),
         subTasks: [],
         createdAt: nowIso,
         updatedAt: nowIso,
+        taskBrief,
+        expectedResult,
+        ddl,
+        background,
+        currentProgress,
+        timeBudget,
+        preference,
       };
       adventureId = id;
       setAdventures((prev) => [...prev, newAdventure]);
       setCurrentId(id);
-    } else if (!currentAdventure.title.trim()) {
-      // 有卷轴但标题为空时，同步填入本次主任务
+    } else if (!currentAdventure.taskBrief?.trim()) {
+      // 有卷轴但任务简述为空时，同步填入本次主任务
       setAdventures((prev) =>
         prev.map((adv) =>
           adv.id === currentAdventure.id
-            ? { ...adv, title: trimmed, updatedAt: new Date().toISOString() }
+            ? { 
+                ...adv, 
+                title: taskBrief, 
+                taskBrief,
+                expectedResult,
+                ddl,
+                background,
+                currentProgress,
+                timeBudget,
+                preference,
+                updatedAt: new Date().toISOString() 
+              }
             : adv,
         ),
       );
@@ -214,44 +319,101 @@ export default function Home() {
     setIsPlanning(true);
 
     try {
-      const response = await fetch("/api/plan", {
+      // 构建 DEEPSEEK API 请求
+      const systemPrompt = `你是一个专业的任务拆解助手。请严格按照以下原则将用户的任务拆解成3-8个具体的子任务：
+
+${breakDownPrinciples}
+
+请以JSON格式返回子任务数组，每个子任务包含以下字段：
+- id: 唯一标识符（如step-1）
+- title: 简洁的标题（不超过15字）
+- description: 具体可操作的描述（详细说明怎么做）
+- weight: 权重（1-3，简单=1，中等=2，稍难=3）
+
+任务描述：
+${fullTask}
+
+请直接返回JSON数组，不要有其他解释。`;
+
+      const response = await fetch(DEEPSEEK_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainTask: trimmed }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: "请帮我拆解这个任务"
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const fromServer = Array.isArray(data.subTasks) ? data.subTasks : [];
-
-        if (fromServer.length > 0 && adventureId) {
-          const normalized: SubTask[] = fromServer.map(
-            (task: any, index: number) => ({
-              id: task.id ?? `step-${index + 1}`,
-              title: task.title ?? `子任务 ${index + 1}`,
-              description:
-                task.description ??
-                `完成与「${trimmed}」相关的第 ${index + 1} 步。`,
-              completed: false,
-              weight:
-                typeof task.weight === "number" && task.weight > 0
-                  ? task.weight
-                  : 1,
-            }),
-          );
-          setAdventures((prev) =>
-            prev.map((adv) =>
-              adv.id === adventureId
-                ? {
-                    ...adv,
-                    title: trimmed,
-                    subTasks: normalized,
-                    updatedAt: new Date().toISOString(),
-                  }
-                : adv,
-            ),
-          );
-          return;
+        const aiResponse = data.choices?.[0]?.message?.content;
+        
+        // 尝试解析AI返回的JSON
+        try {
+          let parsedTasks = [];
+          
+          // 尝试从AI响应中提取JSON
+          const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            parsedTasks = JSON.parse(jsonMatch[0]);
+          } else {
+            // 如果不是纯JSON，尝试直接解析
+            parsedTasks = JSON.parse(aiResponse);
+          }
+          
+          if (Array.isArray(parsedTasks) && parsedTasks.length > 0 && adventureId) {
+            const normalized: SubTask[] = parsedTasks.map(
+              (task: any, index: number) => ({
+                id: task.id ?? `step-${index + 1}`,
+                title: task.title ?? `子任务 ${index + 1}`,
+                description:
+                  task.description ??
+                  `完成与「${taskBrief}」相关的第 ${index + 1} 步。`,
+                completed: false,
+                weight:
+                  typeof task.weight === "number" && task.weight >= 1 && task.weight <= 3
+                    ? task.weight
+                    : task.weight === "简单" ? 1 : task.weight === "中等" ? 2 : task.weight === "困难" ? 3 : 1,
+              }),
+            );
+            setAdventures((prev) =>
+              prev.map((adv) =>
+                adv.id === adventureId
+                  ? {
+                      ...adv,
+                      title: taskBrief,
+                      taskBrief,
+                      expectedResult,
+                      ddl,
+                      background,
+                      currentProgress,
+                      timeBudget,
+                      preference,
+                      subTasks: normalized,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : adv,
+              ),
+            );
+            return;
+          }
+        } catch (parseError) {
+          console.error("Failed to parse AI response:", parseError);
+          // 如果解析失败，使用默认子任务
         }
       }
 
@@ -307,6 +469,13 @@ export default function Home() {
     );
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      void handleStartAdventure();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f5ead7] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.05)_1px,transparent_0)] bg-[length:18px_18px] text-stone-900">
       <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-10">
@@ -340,6 +509,13 @@ export default function Home() {
                       subTasks: [],
                       createdAt: nowIso,
                       updatedAt: nowIso,
+                      taskBrief: "",
+                      expectedResult: "",
+                      ddl: "",
+                      background: "",
+                      currentProgress: "",
+                      timeBudget: "",
+                      preference: "",
                     };
                     setAdventures((prev) => [...prev, newAdventure]);
                     setCurrentId(id);
@@ -359,7 +535,7 @@ export default function Home() {
                   .map((adv) => {
                     const isActive = adv.id === currentId;
                     const shortTitle =
-                      adv.title.trim() || "未命名的冒险卷轴";
+                      adv.taskBrief?.trim() || adv.title.trim() || "未命名的冒险卷轴";
                     const dateLabel = adv.dateKey;
                     const totalWeight = adv.subTasks.reduce(
                       (sum, t) => sum + (t.weight > 0 ? t.weight : 1),
@@ -411,80 +587,136 @@ export default function Home() {
         </header>
 
         <section className="rounded-2xl bg-[#f3e2c6]/90 p-4 shadow-[0_18px_40px_rgba(146,88,36,0.22)] ring-1 ring-amber-300/70 backdrop-blur-sm sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="flex-1">
+          <div className="space-y-4">
+            <div className="mb-4">
               <span className="mb-1 block text-xs font-semibold tracking-[0.16em] text-amber-900/80">
                 启程：定义你的伟大冒险
               </span>
-              <div className="relative">
+              <p className="text-sm text-amber-900/80">
+                请按照以下格式详细描述你的任务，这将帮助 AI 更好地为你规划冒险路线。
+              </p>
+            </div>
+            
+            {/* 任务输入表单 */}
+            <div className="space-y-3" onKeyDown={handleKeyDown}>
+              {/* 任务简述 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【任务简述】
+                </span>
                 <input
-                  value={mainTask}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (!currentAdventure) {
-                      const nowIso = new Date().toISOString();
-                      const id = createAdventureId();
-                      const newAdventure: Adventure = {
-                        id,
-                        title: value,
-                        dateKey: getTodayKey(),
-                        subTasks: [],
-                        createdAt: nowIso,
-                        updatedAt: nowIso,
-                      };
-                      setAdventures((prev) => [...prev, newAdventure]);
-                      setCurrentId(id);
-                    } else {
-                      setAdventures((prev) =>
-                        prev.map((adv) =>
-                          adv.id === currentAdventure.id
-                            ? {
-                                ...adv,
-                                title: value,
-                                updatedAt: new Date().toISOString(),
-                              }
-                            : adv,
-                        ),
-                      );
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      (e.ctrlKey || e.metaKey)
-                    ) {
-                      e.preventDefault();
-                      void handleStartAdventure();
-                    }
-                  }}
-                  placeholder="【任务简述】写完毕业论文第一章初稿；实现新功能原型等【期望结果】今晚前完成一份可以发给导师/同事看的版本【DDL】2025-03-01 23:00【背景/场景】学术写作 / 编程 / 学习 / 工作 / 生活【当前进度】未开始 / 已有资料 / 进行到第几步【时间预算】今天大约可投入 X 小时【特别偏好】先易后难 / 先清障碍 / 希望节奏轻一点等"
-                  className="w-full rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 sm:text-base"
+                  value={taskBrief}
+                  onChange={(e) => setTaskBrief(e.target.value)}
+                  placeholder="例如：写完毕业论文第一章初稿；实现新功能原型等"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
                 />
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1 text-[11px] font-medium text-amber-800/80">
-                  <span className="rounded border border-amber-300/80 bg-amber-100/60 px-1.5 py-0.5 text-[10px] shadow-sm">
-                    Ctrl + Enter
-                  </span>
-                  <span>快速启程</span>
-                </div>
               </div>
-            </label>
-            <button
-              type="button"
-              onClick={handleStartAdventure}
-              disabled={isPlanning}
-              className="mt-2 inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-[0_14px_40px_rgba(180,83,9,0.55)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(180,83,9,0.75)] active:translate-y-[1px] active:shadow-[0_10px_28px_rgba(180,83,9,0.65)] disabled:cursor-wait disabled:opacity-80 sm:mt-7 sm:min-w-[150px]"
-            >
-              {isPlanning ? "吟游诗人构思中..." : "集结队伍，出发！"}
-            </button>
+              
+              {/* 期望结果 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【期望结果】
+                </span>
+                <input
+                  value={expectedResult}
+                  onChange={(e) => setExpectedResult(e.target.value)}
+                  placeholder="例如：今晚前完成一份可以发给导师/同事看的版本"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+              
+              {/* DDL */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【DDL】
+                </span>
+                <input
+                  value={ddl}
+                  onChange={(e) => setDdl(e.target.value)}
+                  placeholder="例如：2025-03-01 23:00"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+              
+              {/* 背景/场景 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【背景/场景】
+                </span>
+                <input
+                  value={background}
+                  onChange={(e) => setBackground(e.target.value)}
+                  placeholder="例如：学术写作 / 编程 / 学习 / 工作 / 生活"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+              
+              {/* 当前进度 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【当前进度】
+                </span>
+                <input
+                  value={currentProgress}
+                  onChange={(e) => setCurrentProgress(e.target.value)}
+                  placeholder="例如：未开始 / 已有资料 / 进行到第几步"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+              
+              {/* 时间预算 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【时间预算】
+                </span>
+                <input
+                  value={timeBudget}
+                  onChange={(e) => setTimeBudget(e.target.value)}
+                  placeholder="例如：今天大约可投入 X 小时"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+              
+              {/* 特别偏好 */}
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
+                  【特别偏好】
+                </span>
+                <input
+                  value={preference}
+                  onChange={(e) => setPreference(e.target.value)}
+                  placeholder="例如：先易后难 / 先清障碍 / 希望节奏轻一点等"
+                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-amber-800/80">
+                <span className="rounded border border-amber-300/80 bg-amber-100/60 px-1.5 py-0.5 text-[10px] shadow-sm">
+                  Ctrl + Enter
+                </span>
+                <span>快速启程</span>
+              </div>
+              
+              <button
+                type="button"
+                onClick={handleStartAdventure}
+                disabled={isPlanning || !taskBrief.trim()}
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-[0_14px_40px_rgba(180,83,9,0.55)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(180,83,9,0.75)] active:translate-y-[1px] active:shadow-[0_10px_28px_rgba(180,83,9,0.65)] disabled:cursor-wait disabled:opacity-80"
+              >
+                {isPlanning ? "吟游诗人构思中..." : "集结队伍，出发！"}
+              </button>
+            </div>
           </div>
         </section>
 
         <section className="flex-1 rounded-3xl bg-[#f3e2c6]/95 p-4 shadow-[0_22px_60px_rgba(120,72,32,0.55)] ring-1 ring-amber-500/40 backdrop-blur-sm sm:p-6 lg:p-8">
-          {!currentAdventure || !currentAdventure.title.trim() ? (
+          {!currentAdventure || !currentAdventure.taskBrief?.trim() ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center text-stone-600">
               <div className="flex items-center gap-2 rounded-full bg-[#f7e7c8] px-3 py-1 text-xs font-medium text-amber-900/80 ring-1 ring-dashed ring-amber-400/70 shadow-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
-                在上方写下一个主任务，然后点击「集结队伍，出发！」
+                在上方填写任务信息，然后点击「集结队伍，出发！」
               </div>
               <p className="max-w-md text-sm">
                 我们会在下方摊开一张古老卷轴，由 AI 冒险顾问帮你拆解章节，把今天的任务变成可以一一通关的路标。
@@ -498,7 +730,7 @@ export default function Home() {
                     今日主线 · MAIN STORY
                   </div>
                   <div className="mt-1 text-lg font-semibold text-stone-950 sm:text-xl">
-                    {mainTask}
+                    {taskBrief}
                   </div>
                 </div>
                 {subTasks.length > 0 && (
@@ -551,6 +783,46 @@ export default function Home() {
                         每完成一个子任务，卷轴上的路径都会亮起一小段金光。
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 任务详情展示 */}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {expectedResult && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">期望结果</div>
+                    <div className="mt-1 text-sm text-stone-800">{expectedResult}</div>
+                  </div>
+                )}
+                {ddl && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">DDL</div>
+                    <div className="mt-1 text-sm text-stone-800">{ddl}</div>
+                  </div>
+                )}
+                {background && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">背景/场景</div>
+                    <div className="mt-1 text-sm text-stone-800">{background}</div>
+                  </div>
+                )}
+                {currentProgress && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">当前进度</div>
+                    <div className="mt-1 text-sm text-stone-800">{currentProgress}</div>
+                  </div>
+                )}
+                {timeBudget && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">时间预算</div>
+                    <div className="mt-1 text-sm text-stone-800">{timeBudget}</div>
+                  </div>
+                )}
+                {preference && (
+                  <div className="rounded-xl bg-amber-50/80 p-3 ring-1 ring-amber-200/70">
+                    <div className="text-xs font-medium text-amber-900/80">特别偏好</div>
+                    <div className="mt-1 text-sm text-stone-800">{preference}</div>
                   </div>
                 )}
               </div>
@@ -801,6 +1073,9 @@ export default function Home() {
                             >
                               {task.title}
                             </span>
+                            <span className="inline-flex h-5 items-center justify-center rounded-full bg-gradient-to-r from-amber-400/30 to-emerald-400/30 px-1.5 text-[10px] font-bold text-amber-900">
+                              ️⚖️权重 {task.weight}
+                            </span>
                           </div>
                           <p className="mt-1 text-[11px] text-stone-600">
                             {task.description}
@@ -824,7 +1099,7 @@ export default function Home() {
           <span>
             小提示：如果今天没全部完成也没关系，卷轴会静静躺在浏览器里，明天篝火再燃起时我们继续。
           </span>
-          <span>Made with React · Tailwind CSS · localStorage · AI 规划</span>
+          <span>Made with React · Tailwind CSS · localStorage · DeepSeek AI</span>
         </footer>
       </main>
     </div>
