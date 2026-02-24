@@ -37,6 +37,25 @@ const getTodayKey = () => {
 const createAdventureId = () =>
   `adv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+// 地图节点位置（最多 6 个），用于动态 3–6 步冒险路线
+const MAP_NODE_POSITIONS = [
+  { x: 70, y: 210 },
+  { x: 130, y: 175 },
+  { x: 190, y: 140 },
+  { x: 250, y: 115 },
+  { x: 310, y: 100 },
+  { x: 340, y: 170 },
+];
+
+// 相邻节点之间的路径（共 5 段），每段对应前一个节点完成时高亮
+const MAP_PATH_SEGMENTS = [
+  "M 70 210 Q 100 188 130 175",
+  "M 130 175 Q 160 156 190 140",
+  "M 190 140 Q 220 126 250 115",
+  "M 250 115 Q 280 106 310 100",
+  "M 310 100 Q 326 138 340 170",
+];
+
 const defaultSubTasks: SubTask[] = [
   {
     id: "scout",
@@ -438,7 +457,7 @@ export default function Home() {
                       void handleStartAdventure();
                     }
                   }}
-                  placeholder="例如：写完毕业论文第一章、实现新功能原型、整理一周的工作计划……"
+                  placeholder="【任务简述】写完毕业论文第一章初稿；实现新功能原型等【期望结果】今晚前完成一份可以发给导师/同事看的版本【DDL】2025-03-01 23:00【背景/场景】学术写作 / 编程 / 学习 / 工作 / 生活【当前进度】未开始 / 已有资料 / 进行到第几步【时间预算】今天大约可投入 X 小时【特别偏好】先易后难 / 先清障碍 / 希望节奏轻一点等"
                   className="w-full rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 sm:text-base"
                 />
                 <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center gap-1 text-[11px] font-medium text-amber-800/80">
@@ -580,145 +599,135 @@ export default function Home() {
                       strokeLinecap="round"
                     />
 
-                    <path
-                      d="M70 210 C 120 170, 170 150, 210 120"
-                      fill="none"
-                      stroke="#7c2d12"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                    />
-                    {subTasks[0]?.completed && (
-                      <path
-                        d="M70 210 C 120 170, 170 150, 210 120"
-                        fill="none"
-                        stroke="#fbbf24"
-                        strokeWidth="6"
-                        strokeLinecap="round"
-                        className="drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]"
-                      />
-                    )}
-
-                    <path
-                      d="M210 120 C 250 90, 290 80, 320 80"
-                      fill="none"
-                      stroke="#7c2d12"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                    />
-                    {subTasks[1]?.completed && (
-                      <path
-                        d="M210 120 C 250 90, 290 80, 320 80"
-                        fill="none"
-                        stroke="#fbbf24"
-                        strokeWidth="6"
-                        strokeLinecap="round"
-                        className="drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]"
-                      />
-                    )}
-
-                    <path
-                      d="M320 80 C 340 100, 350 130, 340 170"
-                      fill="none"
-                      stroke="#7c2d12"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                    />
-                    {subTasks[2]?.completed && (
-                      <path
-                        d="M320 80 C 340 100, 350 130, 340 170"
-                        fill="none"
-                        stroke="#fbbf24"
-                        strokeWidth="6"
-                        strokeLinecap="round"
-                        className="drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]"
-                      />
-                    )}
-
-                    {subTasks[0] && (
-                      <g
-                        className="cursor-pointer transition-transform hover:-translate-y-0.5"
-                        onClick={() => handleToggleSubTask(subTasks[0].id)}
-                      >
-                        <g transform="translate(70, 210)">
-                          <circle
-                            r="18"
-                            fill={subTasks[0].completed ? "#bbf7d0" : "#fef3c7"}
-                            stroke={subTasks[0].completed ? "#15803d" : "#b45309"}
-                            strokeWidth="2.5"
-                          />
+                    {MAP_PATH_SEGMENTS.slice(0, Math.max(0, subTasks.length - 1)).map((d, segIndex) => (
+                      <g key={segIndex}>
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke="#7c2d12"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                        />
+                        {subTasks[segIndex]?.completed && (
                           <path
-                            d="M-10 6 L-10 -4 L0 -10 L10 -4 L10 6 Z"
-                            fill={subTasks[0].completed ? "#16a34a" : "#b45309"}
+                            d={d}
+                            fill="none"
+                            stroke="#fbbf24"
+                            strokeWidth="6"
+                            strokeLinecap="round"
+                            className="drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]"
                           />
-                          <rect
-                            x="-6"
-                            y="5"
-                            width="12"
-                            height="6"
-                            rx="1"
-                            fill={subTasks[0].completed ? "#166534" : "#92400e"}
-                          />
-                        </g>
+                        )}
                       </g>
-                    )}
+                    ))}
 
-                    {subTasks[1] && (
-                      <g
-                        className="cursor-pointer transition-transform hover:-translate-y-0.5"
-                        onClick={() => handleToggleSubTask(subTasks[1].id)}
-                      >
-                        <g transform="translate(210, 120)">
-                          <circle
-                            r="18"
-                            fill={subTasks[1].completed ? "#bbf7d0" : "#e0f2fe"}
-                            stroke={subTasks[1].completed ? "#15803d" : "#0369a1"}
-                            strokeWidth="2.5"
-                          />
-                          <rect
-                            x="-9"
-                            y="0"
-                            width="18"
-                            height="10"
-                            rx="2"
-                            fill={subTasks[1].completed ? "#15803d" : "#14532d"}
-                          />
-                          <polygon
-                            points="-10,0 0,-12 10,0"
-                            fill={subTasks[1].completed ? "#22c55e" : "#1d4ed8"}
-                          />
+                    {subTasks.slice(0, 6).map((task, index) => {
+                      const pos = MAP_NODE_POSITIONS[index] ?? MAP_NODE_POSITIONS[MAP_NODE_POSITIONS.length - 1];
+                      const isFirst = index === 0;
+                      const isLast = index === subTasks.length - 1;
+                      return (
+                        <g
+                          key={task.id}
+                          className="cursor-pointer transition-transform hover:-translate-y-0.5"
+                          onClick={() => handleToggleSubTask(task.id)}
+                        >
+                          <g transform={`translate(${pos.x}, ${pos.y})`}>
+                            {isFirst && (
+                              <>
+                                <circle
+                                  r="18"
+                                  fill={task.completed ? "#bbf7d0" : "#fef3c7"}
+                                  stroke={task.completed ? "#15803d" : "#b45309"}
+                                  strokeWidth="2.5"
+                                />
+                                <path
+                                  d="M-10 6 L-10 -4 L0 -10 L10 -4 L10 6 Z"
+                                  fill={task.completed ? "#16a34a" : "#b45309"}
+                                />
+                                <rect
+                                  x="-6"
+                                  y="5"
+                                  width="12"
+                                  height="6"
+                                  rx="1"
+                                  fill={task.completed ? "#166534" : "#92400e"}
+                                />
+                              </>
+                            )}
+                            {!isFirst && !isLast && (
+                              <>
+                                <circle
+                                  r="18"
+                                  fill={task.completed ? "#bbf7d0" : "#e0f2fe"}
+                                  stroke={task.completed ? "#15803d" : "#0369a1"}
+                                  strokeWidth="2.5"
+                                />
+                                <rect
+                                  x="-9"
+                                  y="0"
+                                  width="18"
+                                  height="10"
+                                  rx="2"
+                                  fill={task.completed ? "#15803d" : "#14532d"}
+                                />
+                                <polygon
+                                  points="-10,0 0,-12 10,0"
+                                  fill={task.completed ? "#22c55e" : "#1d4ed8"}
+                                />
+                              </>
+                            )}
+                            {isLast && !isFirst && (
+                              <>
+                                <rect
+                                  x="-13"
+                                  y="0"
+                                  width="26"
+                                  height="14"
+                                  rx="3"
+                                  fill={task.completed ? "#facc15" : "#b45309"}
+                                />
+                                <rect
+                                  x="-11"
+                                  y="-4"
+                                  width="22"
+                                  height="4"
+                                  rx="1"
+                                  fill={task.completed ? "#fde68a" : "#f97316"}
+                                />
+                                <polygon
+                                  points="0,-4 0,-20 9,-14"
+                                  fill={task.completed ? "#22c55e" : "#e11d48"}
+                                />
+                              </>
+                            )}
+                            {isLast && isFirst && (
+                              <>
+                                <rect
+                                  x="-13"
+                                  y="0"
+                                  width="26"
+                                  height="14"
+                                  rx="3"
+                                  fill={task.completed ? "#facc15" : "#b45309"}
+                                />
+                                <rect
+                                  x="-11"
+                                  y="-4"
+                                  width="22"
+                                  height="4"
+                                  rx="1"
+                                  fill={task.completed ? "#fde68a" : "#f97316"}
+                                />
+                                <polygon
+                                  points="0,-4 0,-20 9,-14"
+                                  fill={task.completed ? "#22c55e" : "#e11d48"}
+                                />
+                              </>
+                            )}
+                          </g>
                         </g>
-                      </g>
-                    )}
-
-                    {subTasks[2] && (
-                      <g
-                        className="cursor-pointer transition-transform hover:-translate-y-0.5"
-                        onClick={() => handleToggleSubTask(subTasks[2].id)}
-                      >
-                        <g transform="translate(340, 170)">
-                          <rect
-                            x="-13"
-                            y="0"
-                            width="26"
-                            height="14"
-                            rx="3"
-                            fill={subTasks[2].completed ? "#facc15" : "#b45309"}
-                          />
-                          <rect
-                            x="-11"
-                            y="-4"
-                            width="22"
-                            height="4"
-                            rx="1"
-                            fill={subTasks[2].completed ? "#fde68a" : "#f97316"}
-                          />
-                          <polygon
-                            points="0,-4 0,-20 9,-14"
-                            fill={subTasks[2].completed ? "#22c55e" : "#e11d48"}
-                          />
-                        </g>
-                      </g>
-                    )}
+                      );
+                    })}
                   </svg>
 
                   <div className="pointer-events-none absolute inset-x-6 bottom-3 flex items-center justify-between text-[10px] font-medium text-amber-900/70">
