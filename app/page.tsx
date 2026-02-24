@@ -346,10 +346,22 @@ ${breakDownPrinciples}
   3. 换行后用✅完成条件开头，列出判断任务完成的具体标准
 - weight: 权重（1=简单/5分钟内，2=中等/5-15分钟，3=稍难/15-30分钟）
 
-【重要】请根据任务复杂度动态调整子任务数量：
-- 简单任务（如回复邮件、整理文件）：3-5个子任务
-- 中等任务（如写报告、做方案）：5-10个子任务
-- 复杂任务（如写论文、开发功能）：10-15个子任务
+【关键】请根据任务的实际难度和复杂度，智能判断需要的子任务数量。不要过于机械地套用固定数量。
+
+判断依据：
+- 任务涉及的范围（单一步骤 vs 多步骤）
+- 需要准备/收集的材料多少
+- 涉及的协作方数量
+- 是否需要等待/依赖其他因素
+
+参考范围（但不要机械套用）：
+- 非常简单（发一封邮件、回一个消息）：2-3个
+- 简单任务（整理文件、回复反馈）：3-5个
+- 中等任务（写报告、做方案）：5-8个  
+- 较复杂任务（开发功能、做分析）：8-12个
+- 复杂项目（系统设计、写论文）：12-20个
+
+如果任务非常明确、步骤简单，就少分几个；如果步骤多、细节多，就多分几个。关键是"刚刚好"，让用户执行时不会感到困惑，也不会觉得太琐碎。
 
 【输出格式示例】：
 {
@@ -725,16 +737,16 @@ ${fullTask}
               <input
                 value={taskBrief}
                 onChange={(e) => setTaskBrief(e.target.value)}
-                placeholder="写下今天的任务..."
-                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+                placeholder="如：整理一份市场研究报告"
+                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
               />
               
               {/* 期望结果 */}
               <input
                 value={expectedResult}
                 onChange={(e) => setExpectedResult(e.target.value)}
-                placeholder="期望结果（选填）"
-                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+                placeholder="如：输出一份20页的PDF报告"
+                className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
               />
               
               {/* DDL、场景、时间并排 */}
@@ -742,20 +754,20 @@ ${fullTask}
                 <input
                   value={ddl}
                   onChange={(e) => setDdl(e.target.value)}
-                  placeholder="DDL"
-                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+                  placeholder="如：本周五"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
                 <input
                   value={background}
                   onChange={(e) => setBackground(e.target.value)}
-                  placeholder="场景"
-                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+                  placeholder="如：给老板汇报"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
                 <input
                   value={timeBudget}
                   onChange={(e) => setTimeBudget(e.target.value)}
-                  placeholder="时间"
-                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:text-gray-400"
+                  placeholder="如：2小时"
+                  className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
               </div>
             </div>
