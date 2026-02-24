@@ -737,7 +737,7 @@ ${fullTask}
               <input
                 value={taskBrief}
                 onChange={(e) => setTaskBrief(e.target.value)}
-                placeholder="如：整理一份市场研究报告"
+                placeholder="【任务名称】例如：整理一份市场研究报告"
                 className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
               />
               
@@ -745,7 +745,7 @@ ${fullTask}
               <input
                 value={expectedResult}
                 onChange={(e) => setExpectedResult(e.target.value)}
-                placeholder="如：输出一份20页的PDF报告"
+                placeholder="【期望结果】例如：输出一份20页的PDF报告"
                 className="w-full rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-xs text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
               />
               
@@ -754,19 +754,19 @@ ${fullTask}
                 <input
                   value={ddl}
                   onChange={(e) => setDdl(e.target.value)}
-                  placeholder="如：本周五"
+                  placeholder="【截止时间】例如：本周五"
                   className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
                 <input
                   value={background}
                   onChange={(e) => setBackground(e.target.value)}
-                  placeholder="如：给老板汇报"
+                  placeholder="【使用场景】例如：给老板汇报"
                   className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
                 <input
                   value={timeBudget}
                   onChange={(e) => setTimeBudget(e.target.value)}
-                  placeholder="如：2小时"
+                  placeholder="【预计时间】例如：2小时"
                   className="flex-1 rounded-lg border border-teal-200/60 bg-[#ecfdf5] px-2 py-1 text-[10px] text-stone-900 outline-none ring-1 ring-transparent transition focus:ring-teal-400/50 placeholder:italic placeholder:text-gray-400"
                 />
               </div>
