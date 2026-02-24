@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type SubTask = {
   id: string;
@@ -44,23 +44,23 @@ const getTodayKey = () => {
 const createAdventureId = () =>
   `adv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-// 地图节点位置（最多 6 个），用于动态 3–6 步冒险路线
+// 地图节点位置（最多 6 个），用于动态 3–6 步冒险路线 - 全景布局
 const MAP_NODE_POSITIONS = [
-  { x: 70, y: 210 },
-  { x: 130, y: 175 },
-  { x: 190, y: 140 },
-  { x: 250, y: 115 },
-  { x: 310, y: 100 },
-  { x: 340, y: 170 },
+  { x: 50, y: 220 },   // 起点
+  { x: 100, y: 180 },
+  { x: 160, y: 150 },
+  { x: 230, y: 130 },
+  { x: 300, y: 110 },
+  { x: 350, y: 60 },   // 终点
 ];
 
-// 相邻节点之间的路径（共 5 段），每段对应前一个节点完成时高亮
+// 相邻节点之间的路径（共 5 段），每段对应前一个节点完成时高亮 - 蜿蜒上山路线
 const MAP_PATH_SEGMENTS = [
-  "M 70 210 Q 100 188 130 175",
-  "M 130 175 Q 160 156 190 140",
-  "M 190 140 Q 220 126 250 115",
-  "M 250 115 Q 280 106 310 100",
-  "M 310 100 Q 326 138 340 170",
+  "M 50 220 Q 75 200 100 180",
+  "M 100 180 Q 130 165 160 150",
+  "M 160 150 Q 195 140 230 130",
+  "M 230 130 Q 265 120 300 110",
+  "M 300 110 Q 325 85 350 60",
 ];
 
 const defaultSubTasks: SubTask[] = [
@@ -88,12 +88,16 @@ const defaultSubTasks: SubTask[] = [
 ];
 
 const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || "";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+const DEEPSEEK_API_URL = "https://api.siliconflow.cn/v1/chat/completions";
+
+// 检测API是否配置
+const isApiConfigured = DEEPSEEK_API_KEY.length > 0;
 
 export default function Home() {
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [isReplanning, setIsReplanning] = useState(false);
   
   // 各个输入框的状态
   const [taskBrief, setTaskBrief] = useState("");
@@ -103,6 +107,9 @@ export default function Home() {
   const [currentProgress, setCurrentProgress] = useState("");
   const [timeBudget, setTimeBudget] = useState("");
   const [preference, setPreference] = useState("");
+  
+  // 地图上当前选中的任务（用于预览，不标记完成）
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -186,8 +193,13 @@ export default function Home() {
     [adventures, currentId],
   );
 
+  // 用ref追踪当前adventure id，避免循环更新
+  const currentAdventureIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (currentAdventure) {
+    // 只有当切换到不同的adventure时才同步表单状态
+    if (currentAdventure && currentAdventure.id !== currentAdventureIdRef.current) {
+      currentAdventureIdRef.current = currentAdventure.id;
       setTaskBrief(currentAdventure.taskBrief || "");
       setExpectedResult(currentAdventure.expectedResult || "");
       setDdl(currentAdventure.ddl || "");
@@ -202,33 +214,16 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    // 更新当前 adventure 的数据
-    if (currentAdventure) {
-      setAdventures(prev =>
-        prev.map(adv =>
-          adv.id === currentAdventure.id
-            ? {
-                ...adv,
-                taskBrief,
-                expectedResult,
-                ddl,
-                background,
-                currentProgress,
-                timeBudget,
-                preference,
-                updatedAt: new Date().toISOString(),
-              }
-            : adv
-        )
-      );
-    }
+    // 只在有当前adventure时保存
+    if (!currentId || !currentAdventure) return;
     
+    // 直接保存到localStorage，不修改adventures数组避免循环
     const state: AdventureState = {
       currentId,
       adventures,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [taskBrief, expectedResult, ddl, background, currentProgress, timeBudget, preference, adventures, currentId, currentAdventure]);
+  }, [adventures, currentId, currentAdventure]);
 
   const mainTask = currentAdventure?.title ?? "";
   const subTasks = currentAdventure?.subTasks ?? [];
@@ -251,6 +246,12 @@ export default function Home() {
   const handleStartAdventure = async () => {
     if (!taskBrief.trim()) return;
 
+    // 检查API是否配置
+    if (!isApiConfigured) {
+      alert("请先配置 AI API Key！\n\n方法：\n1. 访问 https://cloud.siliconflow.cn 注册\n2. 获取API密钥\n3. 在项目根目录创建 .env.local 文件\n4. 添加：NEXT_PUBLIC_DEEPSEEK_API_KEY=你的密钥\n5. 重启开发服务器");
+      return;
+    }
+
     // 构建完整的任务描述
     const fullTask = `【任务简述】${taskBrief}
 【期望结果】${expectedResult}
@@ -260,15 +261,25 @@ export default function Home() {
 【时间预算】${timeBudget}
 【特别偏好】${preference}`;
 
-    // 构建拆解原则
-    const breakDownPrinciples = `【拆解原则】
-1. 每个步骤都应该简单易行，可以在15-30分钟内完成
-2. 从最简单的步骤开始，帮助用户快速建立成就感
-3. 避免复杂的、需要长时间专注的任务
-4. 根据任务复杂度自然确定步骤数量（通常3-8个）
-5. 考虑用户的【时间预算】和【特别偏好】
-6. 每个步骤都要具体、可操作、容易上手
-7. 为每个步骤分配合理的权重（1-3），简单的步骤权重为1，中等为2，稍难为3`;
+    // 构建拆解原则 - 核心：零阻力任务分解
+    const breakDownPrinciples = `【核心原则：零阻力任务分解】
+1. 每个步骤必须"马上就能做"，不需要额外准备或思考
+2. 单个步骤预计耗时：5-20分钟（而不是15-30分钟）
+3. 第一个任务必须是"1分钟就能开始"的超级简单任务
+4. 避免任何需要"查资料"、"找素材"、"做准备"的前置任务
+5. 任务顺序：从最简单、最熟悉的开始，逐步增加难度
+6. 子任务数量：根据任务复杂度，在3-15个之间动态调整
+7. 每个任务要有明确的开头动词，告诉用户"做什么"而不是"完成什么"
+8. 权重策略：
+   - 权重1（简单）：5分钟内可完成，不需要专注思考
+   - 权重2（中等）：5-15分钟可完成，需要轻度思考
+   - 权重3（稍难）：15-30分钟可完成，需要持续专注
+
+【关键洞察】
+- 用户拖延往往是因为"第一步太难"
+- 所以第一个任务必须简单到"不可能失败"
+- 不要让用户"写报告"，而是让用户"打开文档，先写标题"
+- 不要让用户"做PPT"，而是让用户"新建PPT，选一个喜欢的模板"`;
 
     // 如果当前没有冒险卷轴，为今天新建一卷
     let adventureId = currentId;
@@ -320,20 +331,42 @@ export default function Home() {
 
     try {
       // 构建 DEEPSEEK API 请求
-      const systemPrompt = `你是一个专业的任务拆解助手。请严格按照以下原则将用户的任务拆解成3-8个具体的子任务：
+      const systemPrompt = `你是一个专业的任务拆解助手，擅长将复杂任务分解成"零阻力"的微小步骤。
+
+请严格按照以下原则将用户的任务拆解成具体的子任务：
 
 ${breakDownPrinciples}
 
 请以JSON格式返回子任务数组，每个子任务包含以下字段：
 - id: 唯一标识符（如step-1）
-- title: 简洁的标题（不超过15字）
-- description: 具体可操作的描述（详细说明怎么做）
-- weight: 权重（1-3，简单=1，中等=2，稍难=3）
+- title: 简洁的行动导向标题（不超过20字，必须以动词开头）
+- description: 详细的任务描述，必须包含以下格式：
+  1. 首先用【当前任务 (#序号) : 标题】格式开头
+  2. 换行后用🛠️行动指南开头，列出具体的操作步骤（使用 bullet point 格式，每条以 - 开头）
+  3. 换行后用✅完成条件开头，列出判断任务完成的具体标准
+- weight: 权重（1=简单/5分钟内，2=中等/5-15分钟，3=稍难/15-30分钟）
+
+【重要】请根据任务复杂度动态调整子任务数量：
+- 简单任务（如回复邮件、整理文件）：3-5个子任务
+- 中等任务（如写报告、做方案）：5-10个子任务
+- 复杂任务（如写论文、开发功能）：10-15个子任务
+
+【输出格式示例】：
+{
+  "subTasks": [
+    {
+      "id": "step-1",
+      "title": "打开PPT文件",
+      "description": "【当前任务 (#1) : 打开PPT文件】\\n\\n🛠️行动指南 :\\n- 双击桌面上的PPT图标启动程序\\n- 点击"打开其他文档"找到你的PPT文件\\n- 选中文件后点击"打开"按钮\\n\\n✅完成条件 :\\n- PPT程序已启动\\n- 目标文件已打开并显示在屏幕上",
+      "weight": 1
+    }
+  ]
+}
 
 任务描述：
 ${fullTask}
 
-请直接返回JSON数组，不要有其他解释。`;
+请直接返回JSON对象，不要有其他解释。`;
 
       const response = await fetch(DEEPSEEK_API_URL, {
         method: "POST",
@@ -342,7 +375,7 @@ ${fullTask}
           "Authorization": `Bearer ${DEEPSEEK_API_KEY}`
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: "Qwen/Qwen2-7B-Instruct",
           messages: [
             {
               role: "system",
@@ -358,6 +391,12 @@ ${fullTask}
         }),
       });
 
+      console.log("API Response status:", response.status);
+      console.log("API Key configured:", !!DEEPSEEK_API_KEY);
+      console.log("API Key (first 10 chars):", DEEPSEEK_API_KEY.substring(0, 10));
+      console.log("API URL:", DEEPSEEK_API_URL);
+      console.log("Model:", "Qwen/Qwen2-7B-Instruct");
+      
       if (response.ok) {
         const data = await response.json();
         const aiResponse = data.choices?.[0]?.message?.content;
@@ -431,7 +470,8 @@ ${fullTask}
           ),
         );
       }
-    } catch {
+    } catch (error) {
+      console.error("API Error:", error);
       if (adventureId) {
         setAdventures((prev) =>
           prev.map((adv) =>
@@ -447,6 +487,161 @@ ${fullTask}
       }
     } finally {
       setIsPlanning(false);
+    }
+  };
+
+  // 重新分解任务 - 使用AI重新优化子任务
+  const handleReplanAdventure = async () => {
+    if (!currentAdventure || !currentAdventure.taskBrief?.trim()) return;
+    if (isReplanning || isPlanning) return;
+
+    // 检查API是否配置
+    if (!isApiConfigured) {
+      alert("请先配置 DeepSeek API Key！\n\n方法：\n1. 访问 https://platform.deepseek.com 获取API Key\n2. 在项目根目录创建 .env.local 文件\n3. 添加内容：NEXT_PUBLIC_DEEPSEEK_API_KEY=你的API密钥\n4. 重启开发服务器");
+      return;
+    }
+
+    setIsReplanning(true);
+
+    try {
+      // 构建完整的任务描述
+      const fullTask = `【任务简述】${currentAdventure.taskBrief}
+【期望结果】${currentAdventure.expectedResult}
+【DDL】${currentAdventure.ddl}
+【背景/场景】${currentAdventure.background}
+【当前进度】${currentAdventure.currentProgress}
+【时间预算】${currentAdventure.timeBudget}
+【特别偏好】${currentAdventure.preference}`;
+
+      // 零阻力任务分解原则
+      const breakDownPrinciples = `【核心原则：零阻力任务分解】
+1. 每个步骤必须"马上就能做"，不需要额外准备或思考
+2. 单个步骤预计耗时：5-20分钟（而不是15-30分钟）
+3. 第一个任务必须是"1分钟就能开始"的超级简单任务
+4. 避免任何需要"查资料"、"找素材"、"做准备"的前置任务
+5. 任务顺序：从最简单、最熟悉的开始，逐步增加难度
+6. 子任务数量：根据任务复杂度，在3-15个之间动态调整
+7. 每个任务要有明确的开头动词，告诉用户"做什么"而不是"完成什么"
+8. 权重策略：
+   - 权重1（简单）：5分钟内可完成，不需要专注思考
+   - 权重2（中等）：5-15分钟可完成，需要轻度思考
+   - 权重3（稍难）：15-30分钟可完成，需要持续专注
+
+【关键洞察】
+- 用户拖延往往是因为"第一步太难"
+- 所以第一个任务必须简单到"不可能失败"
+- 不要让用户"写报告"，而是让用户"打开文档，先写标题"
+- 不要让用户"做PPT"，而是让用户"新建PPT，选一个喜欢的模板"`;
+
+      const systemPrompt = `你是一个专业的任务拆解助手，擅长将复杂任务分解成"零阻力"的微小步骤。
+
+请严格按照以下原则将用户的任务拆解成具体的子任务：
+
+${breakDownPrinciples}
+
+请以JSON格式返回子任务数组，每个子任务包含以下字段：
+- id: 唯一标识符（如step-1）
+- title: 简洁的行动导向标题（不超过20字，必须以动词开头）
+- description: 详细的任务描述，必须包含以下格式：
+  1. 首先用【当前任务 (#序号) : 标题】格式开头
+  2. 换行后用🛠️行动指南开头，列出具体的操作步骤（使用 bullet point 格式，每条以 - 开头）
+  3. 换行后用✅完成条件开头，列出判断任务完成的具体标准
+- weight: 权重（1=简单/5分钟内，2=中等/5-15分钟，3=稍难/15-30分钟）
+
+【重要】请根据任务复杂度动态调整子任务数量：
+- 简单任务（如回复邮件、整理文件）：3-5个子任务
+- 中等任务（如写报告、做方案）：5-10个子任务
+- 复杂任务（如写论文、开发功能）：10-15个子任务
+
+【输出格式示例】：
+{
+  "subTasks": [
+    {
+      "id": "step-1",
+      "title": "打开PPT文件",
+      "description": "【当前任务 (#1) : 打开PPT文件】\\n\\n🛠️行动指南 :\\n- 双击桌面上的PPT图标启动程序\\n- 点击"打开其他文档"找到你的PPT文件\\n- 选中文件后点击"打开"按钮\\n\\n✅完成条件 :\\n- PPT程序已启动\\n- 目标文件已打开并显示在屏幕上",
+      "weight": 1
+    }
+  ]
+}
+
+任务描述：
+${fullTask}
+
+请直接返回JSON对象，不要有其他解释。`;
+
+      const response = await fetch(DEEPSEEK_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "Qwen/Qwen2-7B-Instruct",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: "请重新帮我拆解这个任务，让每个子任务都能马上执行，没有任何阻力。"
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiResponse = data.choices?.[0]?.message?.content;
+        
+        try {
+          let parsedTasks = [];
+          const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            parsedTasks = JSON.parse(jsonMatch[0]);
+          } else {
+            parsedTasks = JSON.parse(aiResponse);
+          }
+          
+          if (Array.isArray(parsedTasks) && parsedTasks.length > 0) {
+            const normalized: SubTask[] = parsedTasks.map(
+              (task: any, index: number) => ({
+                id: task.id ?? `step-${index + 1}`,
+                title: task.title ?? `子任务 ${index + 1}`,
+                description:
+                  task.description ??
+                  `完成与「${currentAdventure.taskBrief}」相关的第 ${index + 1} 步。`,
+                completed: false,
+                weight:
+                  typeof task.weight === "number" && task.weight >= 1 && task.weight <= 3
+                    ? task.weight
+                    : 1,
+              }),
+            );
+            setAdventures((prev) =>
+              prev.map((adv) =>
+                adv.id === currentAdventure.id
+                  ? {
+                      ...adv,
+                      subTasks: normalized,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : adv,
+              ),
+            );
+            return;
+          }
+        } catch (parseError) {
+          console.error("Failed to parse AI response:", parseError);
+        }
+      }
+    } catch (error) {
+      console.error("Replan failed:", error);
+    } finally {
+      setIsReplanning(false);
     }
   };
 
@@ -478,222 +673,145 @@ ${fullTask}
 
   return (
     <div className="min-h-screen bg-[#f5ead7] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.05)_1px,transparent_0)] bg-[length:18px_18px] text-stone-900">
-      <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-10">
-        <header className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-amber-50/80 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm ring-1 ring-amber-200/70 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-            任务冒险伴侣 · 在温暖的篝火旁展开一日冒险
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">
-            今天，我们要开启什么伟大的冒险？
-          </h1>
-          <p className="max-w-2xl text-sm text-stone-600 sm:text-base">
-            把今天的主任务当成一段被写进卷轴的故事。AI 吟游诗人会为你拆解章节，标出关键节点，一起慢慢推进到属于你的结局。
-          </p>
+      <main className="mx-auto flex min-h-screen max-w-7xl flex-row gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {/* 左侧主内容区域 */}
+        <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <header className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full bg-amber-50/80 px-3 py-1 text-xs font-medium text-amber-900 shadow-sm ring-1 ring-amber-200/70 backdrop-blur">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+              任务冒险伴侣 · 在温暖的篝火旁展开一日冒险
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">
+              今天，我们要开启什么伟大的冒险？
+            </h1>
+            <p className="max-w-2xl text-sm text-stone-600 sm:text-base">
+              把今天的主任务当成一段被写进卷轴的故事。AI 吟游诗人会为你拆解章节，标出关键节点，一起慢慢推进到属于你的结局。
+            </p>
 
-          {adventures.length > 0 && (
-            <div className="mt-3 space-y-2 rounded-2xl bg-[#f3e2c6]/80 p-3 ring-1 ring-amber-300/70">
-              <div className="flex items-center justify-between text-[11px] font-medium text-amber-900/80">
-                <span>多日冒险档案 · 卷轴一览</span>
-                <button
-                  type="button"
-                  className="rounded-full border border-amber-300/80 bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-900 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-                  onClick={() => {
-                    const nowIso = new Date().toISOString();
-                    const id = createAdventureId();
-                    const todayKey = getTodayKey();
-                    const newAdventure: Adventure = {
-                      id,
-                      title: "",
-                      dateKey: todayKey,
-                      subTasks: [],
-                      createdAt: nowIso,
-                      updatedAt: nowIso,
-                      taskBrief: "",
-                      expectedResult: "",
-                      ddl: "",
-                      background: "",
-                      currentProgress: "",
-                      timeBudget: "",
-                      preference: "",
-                    };
-                    setAdventures((prev) => [...prev, newAdventure]);
-                    setCurrentId(id);
-                  }}
-                >
-                  新的一天，新卷轴
-                </button>
+          {/* API配置状态提示 */}
+          {!isApiConfigured && (
+            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+              <div className="font-semibold">⚠️ AI服务未配置</div>
+              <div className="mt-1">
+                请配置 AI API Key 以启用任务分解功能：
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {adventures
-                  .slice()
-                  .sort(
-                    (a, b) =>
-                      new Date(b.createdAt).getTime() -
-                      new Date(a.createdAt).getTime(),
-                  )
-                  .map((adv) => {
-                    const isActive = adv.id === currentId;
-                    const shortTitle =
-                      adv.taskBrief?.trim() || adv.title.trim() || "未命名的冒险卷轴";
-                    const dateLabel = adv.dateKey;
-                    const totalWeight = adv.subTasks.reduce(
-                      (sum, t) => sum + (t.weight > 0 ? t.weight : 1),
-                      0,
-                    );
-                    const completedWeight = adv.subTasks.reduce(
-                      (sum, t) =>
-                        sum +
-                        (t.completed ? (t.weight > 0 ? t.weight : 1) : 0),
-                      0,
-                    );
-                    const rate =
-                      totalWeight === 0
-                        ? 0
-                        : Math.round((completedWeight / totalWeight) * 100);
-
-                    return (
-                      <button
-                        key={adv.id}
-                        type="button"
-                        onClick={() => setCurrentId(adv.id)}
-                        className={`flex min-w-[150px] flex-none flex-col justify-between rounded-xl border px-3 py-2 text-left text-[11px] shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(146,88,36,0.45)] ${
-                          isActive
-                            ? "border-amber-500 bg-[#fef3c7]"
-                            : "border-amber-200/80 bg-[#f8e7c7]/90"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-semibold text-amber-900 line-clamp-1">
-                            {shortTitle}
-                          </span>
-                          <span className="rounded bg-amber-100/80 px-1 py-0.5 text-[10px] text-amber-900">
-                            {rate}%
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between text-[10px] text-amber-900/80">
-                          <span>{dateLabel}</span>
-                          <span>
-                            {adv.subTasks.filter((t) => t.completed).length}/
-                            {adv.subTasks.length || 0} 节点
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+              <div className="mt-2 font-mono bg-red-100 p-2 rounded text-[10px]">
+                1. 访问 <strong>https://cloud.siliconflow.cn</strong> 注册<br/>
+                2. 在左侧"API密钥"复制你的密钥<br/>
+                3. 在项目根目录创建 <strong>.env.local</strong> 文件<br/>
+                4. 添加：<br/>
+                &nbsp;&nbsp;NEXT_PUBLIC_DEEPSEEK_API_KEY=你的密钥<br/>
+                5. 重启开发服务器
               </div>
             </div>
           )}
         </header>
 
-        <section className="rounded-2xl bg-[#f3e2c6]/90 p-4 shadow-[0_18px_40px_rgba(146,88,36,0.22)] ring-1 ring-amber-300/70 backdrop-blur-sm sm:p-6">
-          <div className="space-y-4">
-            <div className="mb-4">
+        <section className="rounded-2xl bg-[#f3e2c6]/90 p-3 shadow-[0_18px_40px_rgba(146,88,36,0.22)] ring-1 ring-amber-300/70 backdrop-blur-sm sm:p-4">
+          <div className="space-y-3">
+            <div className="mb-2">
               <span className="mb-1 block text-xs font-semibold tracking-[0.16em] text-amber-900/80">
-                启程：定义你的伟大冒险
+                启程：定义你的冒险任务
               </span>
-              <p className="text-sm text-amber-900/80">
-                请按照以下格式详细描述你的任务，这将帮助 AI 更好地为你规划冒险路线。
-              </p>
             </div>
             
-            {/* 任务输入表单 */}
-            <div className="space-y-3" onKeyDown={handleKeyDown}>
+            {/* 任务输入表单 - 紧凑布局 */}
+            <div className="space-y-2" onKeyDown={handleKeyDown}>
               {/* 任务简述 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【任务简述】
+              <div className="flex items-center gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
+                  任务简述
                 </span>
                 <input
                   value={taskBrief}
                   onChange={(e) => setTaskBrief(e.target.value)}
-                  placeholder="例如：写完毕业论文第一章初稿；实现新功能原型等"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  placeholder="例如：写完毕业论文第一章初稿"
+                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
                 />
               </div>
               
-              {/* 期望结果 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【期望结果】
+              {/* 期望结果 - 紧凑行 */}
+              <div className="flex items-center gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
+                  期望结果
                 </span>
                 <input
                   value={expectedResult}
                   onChange={(e) => setExpectedResult(e.target.value)}
-                  placeholder="例如：今晚前完成一份可以发给导师/同事看的版本"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  placeholder="今晚前完成可以发出的版本"
+                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
                 />
               </div>
               
-              {/* DDL */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【DDL】
-                </span>
-                <input
-                  value={ddl}
-                  onChange={(e) => setDdl(e.target.value)}
-                  placeholder="例如：2025-03-01 23:00"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                />
+              {/* DDL 和 背景并排 */}
+              <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[40px]">
+                    DDL
+                  </span>
+                  <input
+                    value={ddl}
+                    onChange={(e) => setDdl(e.target.value)}
+                    placeholder="2025-03-01 23:00"
+                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  />
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[40px]">
+                    场景
+                  </span>
+                  <input
+                    value={background}
+                    onChange={(e) => setBackground(e.target.value)}
+                    placeholder="学术/编程/工作等"
+                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  />
+                </div>
               </div>
               
-              {/* 背景/场景 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【背景/场景】
-                </span>
-                <input
-                  value={background}
-                  onChange={(e) => setBackground(e.target.value)}
-                  placeholder="例如：学术写作 / 编程 / 学习 / 工作 / 生活"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                />
-              </div>
-              
-              {/* 当前进度 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【当前进度】
+              {/* 当前进度 - 紧凑行 */}
+              <div className="flex items-center gap-2">
+                <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[60px]">
+                  当前进度
                 </span>
                 <input
                   value={currentProgress}
                   onChange={(e) => setCurrentProgress(e.target.value)}
-                  placeholder="例如：未开始 / 已有资料 / 进行到第几步"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  placeholder="未开始/已有资料/进行到第几步"
+                  className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
                 />
               </div>
               
-              {/* 时间预算 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【时间预算】
-                </span>
-                <input
-                  value={timeBudget}
-                  onChange={(e) => setTimeBudget(e.target.value)}
-                  placeholder="例如：今天大约可投入 X 小时"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                />
-              </div>
-              
-              {/* 特别偏好 */}
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 whitespace-nowrap text-sm font-medium text-amber-900 min-w-[80px]">
-                  【特别偏好】
-                </span>
-                <input
-                  value={preference}
-                  onChange={(e) => setPreference(e.target.value)}
-                  placeholder="例如：先易后难 / 先清障碍 / 希望节奏轻一点等"
-                  className="flex-1 rounded-xl border border-amber-200/80 bg-[#f8ecda] px-3.5 py-2.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
-                />
+              {/* 时间预算和偏好并排 */}
+              <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[50px]">
+                    时间
+                  </span>
+                  <input
+                    value={timeBudget}
+                    onChange={(e) => setTimeBudget(e.target.value)}
+                    placeholder="今天可投入X小时"
+                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  />
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="flex-shrink-0 whitespace-nowrap text-xs font-medium text-amber-900 min-w-[50px]">
+                    偏好
+                  </span>
+                  <input
+                    value={preference}
+                    onChange={(e) => setPreference(e.target.value)}
+                    placeholder="先易后难/先清障碍等"
+                    className="flex-1 rounded-lg border border-amber-200/80 bg-[#f8ecda] px-3 py-1.5 text-sm text-stone-900 shadow-inner shadow-amber-100/80 outline-none ring-2 ring-transparent transition focus:bg-[#fdf4e1] focus:ring-amber-400/80 placeholder:italic placeholder:text-gray-400"
+                  />
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-1 text-[11px] font-medium text-amber-800/80">
-                <span className="rounded border border-amber-300/80 bg-amber-100/60 px-1.5 py-0.5 text-[10px] shadow-sm">
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-1 text-[10px] font-medium text-amber-800/80">
+                <span className="rounded border border-amber-300/80 bg-amber-100/60 px-1.5 py-0.5 text-[9px] shadow-sm">
                   Ctrl + Enter
                 </span>
                 <span>快速启程</span>
@@ -703,9 +821,9 @@ ${fullTask}
                 type="button"
                 onClick={handleStartAdventure}
                 disabled={isPlanning || !taskBrief.trim()}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-amber-950 shadow-[0_14px_40px_rgba(180,83,9,0.55)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(180,83,9,0.75)] active:translate-y-[1px] active:shadow-[0_10px_28px_rgba(180,83,9,0.65)] disabled:cursor-wait disabled:opacity-80"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2 text-sm font-semibold text-amber-950 shadow-[0_14px_40px_rgba(180,83,9,0.55)] transition-transform hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(180,83,9,0.75)] active:translate-y-[1px] active:shadow-[0_10px_28px_rgba(180,83,9,0.65)] disabled:cursor-wait disabled:opacity-80"
               >
-                {isPlanning ? "吟游诗人构思中..." : "集结队伍，出发！"}
+                {isPlanning ? "构思中..." : "出发！"}
               </button>
             </div>
           </div>
@@ -827,8 +945,8 @@ ${fullTask}
                 )}
               </div>
 
-              <div className="relative mt-2 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-                <div className="relative h-72 overflow-hidden rounded-3xl bg-gradient-to-br from-[#f8e7c7] via-[#f2ddbc] to-[#e9cfab] p-4 ring-1 ring-amber-600/40 shadow-inner shadow-amber-900/20 sm:h-80">
+              <div className="relative mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+                <div className="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-[#f8e7c7] via-[#f2ddbc] to-[#e9cfab] p-3 ring-1 ring-amber-600/40 shadow-inner shadow-amber-900/20 sm:h-72 lg:h-80">
                   <div className="pointer-events-none absolute inset-3 rounded-[1.75rem] border border-dashed border-amber-700/50" />
                   <svg
                     viewBox="0 0 400 260"
@@ -901,7 +1019,7 @@ ${fullTask}
                         <g
                           key={task.id}
                           className="cursor-pointer transition-transform hover:-translate-y-0.5"
-                          onClick={() => handleToggleSubTask(task.id)}
+                          onClick={() => setSelectedTaskId(task.id)}
                         >
                           <g transform={`translate(${pos.x}, ${pos.y})`}>
                             {isFirst && (
@@ -1014,93 +1132,297 @@ ${fullTask}
                     <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
                       冒险步骤总览
                     </h2>
-                    {currentAdventure && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdventures((prev) =>
-                            prev.map((adv) =>
-                              adv.id === currentAdventure.id
-                                ? {
-                                    ...adv,
-                                    subTasks: defaultSubTasks,
-                                    updatedAt: new Date().toISOString(),
-                                  }
-                                : adv,
-                            ),
-                          );
-                        }}
-                        className="text-xs font-medium text-amber-800 underline-offset-2 hover:underline"
-                      >
-                        重置本卷轴子任务
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {currentAdventure && currentAdventure.subTasks.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleReplanAdventure}
+                          disabled={isReplanning || isPlanning}
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-1.5 text-xs font-semibold text-amber-950 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {isReplanning ? (
+                            <>
+                              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              AI重构中...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              AI重新分解
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {currentAdventure && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdventures((prev) =>
+                              prev.map((adv) =>
+                                adv.id === currentAdventure.id
+                                  ? {
+                                      ...adv,
+                                      subTasks: defaultSubTasks,
+                                      updatedAt: new Date().toISOString(),
+                                    }
+                                  : adv,
+                              ),
+                            );
+                          }}
+                          className="text-xs font-medium text-amber-800 underline-offset-2 hover:underline"
+                        >
+                          重置
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-slate-500 sm:text-[13px]">
                     每完成一个子任务，左侧卷轴上的对应路段会亮起金色光芒，并伴随轻微的点亮动画。你可以像推图一样一步一步前进。
                   </p>
-                  <div className="space-y-2">
-                    {subTasks.map((task, index) => (
-                      <label
-                        key={task.id}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-xs shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-[#fff7e6] hover:shadow-[0_8px_24px_rgba(146,88,36,0.45)] ${
-                          task.completed
-                            ? "border-emerald-300 bg-emerald-50/90 shadow-[0_0_0_1px_rgba(16,185,129,0.45)] animate-[card-glow_480ms_ease-out]"
-                            : "border-amber-200/80 bg-[#fdf3dd]/70"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => handleToggleSubTask(task.id)}
-                          className={`mt-0.5 h-4 w-4 rounded border-amber-400 text-emerald-600 accent-emerald-600 shadow-[0_0_0_1px_rgba(180,83,9,0.5)] ${
-                            task.completed
-                              ? "animate-[task-bounce_260ms_cubic-bezier(.34,1.56,.64,1)]"
-                              : ""
-                          }`}
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex h-5 min-w-[1.5rem] items-center justify-center rounded-full bg-amber-100 text-[10px] font-semibold text-amber-900/90">
-                              步骤 {index + 1}
-                            </span>
-                            <span
-                              className={`text-[13px] font-semibold ${
-                                task.completed
-                                  ? "text-emerald-800"
-                                  : "text-stone-950"
-                              }`}
-                            >
-                              {task.title}
-                            </span>
-                            <span className="inline-flex h-5 items-center justify-center rounded-full bg-gradient-to-r from-amber-400/30 to-emerald-400/30 px-1.5 text-[10px] font-bold text-amber-900">
-                              ️⚖️权重 {task.weight}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] text-stone-600">
-                            {task.description}
-                          </p>
+                  
+                  {/* 已完成的任务列表 */}
+                  {subTasks.filter(t => t.completed).length > 0 && (
+                    <div className="mb-3">
+                      <details className="group">
+                        <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                          已完成 {subTasks.filter(t => t.completed).length} 个任务
+                          <svg className="h-3 w-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </summary>
+                        <div className="mt-2 space-y-2 pl-6">
+                          {subTasks.filter(t => t.completed).map((task, idx) => (
+                            <div key={task.id} className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2 py-1.5 text-xs">
+                              <span className="mt-0.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                                <svg className="h-2.5 w-2.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                              <span className="text-emerald-800 line-through">{task.title}</span>
+                            </div>
+                          ))}
                         </div>
-                      </label>
-                    ))}
-                    {subTasks.length === 0 && (
-                      <p className="text-xs text-stone-500">
-                        还没有子任务。点击上方「集结队伍，出发！」，AI 会为你在卷轴上生成三个起步的小章节。
-                      </p>
-                    )}
-                  </div>
+                      </details>
+                    </div>
+                  )}
+                  
+                  {/* 当前任务 - 优先显示选中的任务，否则显示第一个未完成的任务 */}
+                  {(() => {
+                    // 优先显示地图上选中的任务
+                    const selectedTask = selectedTaskId ? subTasks.find(t => t.id === selectedTaskId) : null;
+                    const currentTask = selectedTask || subTasks.find(t => !t.completed);
+                    const currentIndex = selectedTask ? subTasks.findIndex(t => t.id === selectedTaskId) : subTasks.findIndex(t => !t.completed);
+                    const isPreviewing = !!selectedTask;
+                    const remainingCount = selectedTask 
+                      ? subTasks.findIndex(t => t.id === selectedTaskId) 
+                      : subTasks.filter(t => !t.completed).length - 1;
+                    
+                    if (!currentTask) {
+                      return subTasks.length > 0 ? (
+                        <div className="rounded-xl border border-emerald-300 bg-emerald-50/90 p-4 text-center">
+                          <div className="text-2xl">🎉</div>
+                          <p className="mt-1 font-semibold text-emerald-800">所有任务已完成！</p>
+                          <p className="text-xs text-emerald-600">太棒了，你完成了今天的全部挑战！</p>
+                        </div>
+                      ) : null;
+                    }
+                    
+                    return (
+                      <div className="space-y-2">
+                        {/* 当前任务高亮显示 */}
+                        <div className={`rounded-xl border-2 ${isPreviewing ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50' : 'border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50'} p-4 shadow-lg`}>
+                          {/* 提示：预览中或当前任务 */}
+                          {isPreviewing && (
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-blue-400 text-[11px] font-bold text-white">
+                                预览
+                              </span>
+                              <button 
+                                onClick={() => setSelectedTaskId(null)}
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                关闭预览
+                              </button>
+                            </div>
+                          )}
+                          {!isPreviewing && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-amber-400 text-[11px] font-bold text-amber-900 animate-pulse">
+                                当前
+                              </span>
+                              <span className="text-[15px] font-bold text-stone-900">
+                                {currentTask.title}
+                              </span>
+                            </div>
+                          )}
+                          {isPreviewing && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="text-[15px] font-bold text-stone-900">
+                                {currentTask.title}
+                              </span>
+                            </div>
+                          )}
+                          <div className="prose prose-sm max-w-none text-[13px] text-stone-700">
+                            {/* 解析任务描述，支持换行格式 */}
+                            {currentTask.description.split('\n').map((line, i) => {
+                              const trimmed = line.trim();
+                              if (trimmed.startsWith('🛠️') || trimmed.startsWith('✅') || trimmed.startsWith('📋')) {
+                                return <p key={i} className="mt-2 font-semibold text-stone-800">{trimmed}</p>;
+                              }
+                              if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+                                return <p key={i} className="ml-3 text-stone-600">{trimmed}</p>;
+                              }
+                              return <p key={i} className="text-stone-600">{trimmed}</p>;
+                            })}
+                          </div>
+                          {/* 只有在非预览模式下才显示标记完成按钮 */}
+                          {!isPreviewing && (
+                            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 font-semibold text-amber-900 transition hover:bg-amber-500">
+                              <input
+                                type="checkbox"
+                                checked={currentTask.completed}
+                                onChange={() => handleToggleSubTask(currentTask.id)}
+                                className="h-5 w-5 rounded border-amber-500 text-emerald-600 accent-emerald-600"
+                              />
+                              标记完成
+                            </label>
+                          )}
+                          {/* 预览模式下的提示 */}
+                          {isPreviewing && (
+                            <div className="mt-3 rounded-lg bg-blue-100 px-4 py-2 text-center text-xs text-blue-700">
+                              点击地图上的其他节点可查看不同任务
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 剩余任务数量提示 */}
+                        {!isPreviewing && remainingCount > 0 && (
+                          <p className="text-center text-xs text-stone-500">
+                            📍 还有 {remainingCount} 个任务等待解锁
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  
+                  {subTasks.length === 0 && (
+                    <p className="text-xs text-stone-500">
+                      还没有子任务。点击上方「集结队伍，出发！」，AI 会为你在卷轴上生成三个起步的小章节。
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           )}
         </section>
+        </div>
 
-        <footer className="mt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-stone-500">
-          <span>
-            小提示：如果今天没全部完成也没关系，卷轴会静静躺在浏览器里，明天篝火再燃起时我们继续。
-          </span>
-          <span>Made with React · Tailwind CSS · localStorage · DeepSeek AI</span>
-        </footer>
+        {/* 右侧边栏 - 历史冒险卷轴 */}
+        <div className="w-56 flex-shrink-0 hidden lg:block">
+          {adventures.length > 0 && (
+            <div className="sticky top-6 space-y-3 rounded-2xl bg-[#f3e2c6]/80 p-3 ring-1 ring-amber-300/70">
+              <div className="flex items-center justify-between text-[11px] font-medium text-amber-900/80">
+                <span>📜 冒险卷轴</span>
+                <button
+                  type="button"
+                  className="rounded-full border border-amber-300/80 bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-900 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                  onClick={() => {
+                    const nowIso = new Date().toISOString();
+                    const id = createAdventureId();
+                    const todayKey = getTodayKey();
+                    const newAdventure: Adventure = {
+                      id,
+                      title: "",
+                      dateKey: todayKey,
+                      subTasks: [],
+                      createdAt: nowIso,
+                      updatedAt: nowIso,
+                      taskBrief: "",
+                      expectedResult: "",
+                      ddl: "",
+                      background: "",
+                      currentProgress: "",
+                      timeBudget: "",
+                      preference: "",
+                    };
+                    setAdventures((prev) => [...prev, newAdventure]);
+                    setCurrentId(id);
+                  }}
+                >
+                  + 新冒险
+                </button>
+              </div>
+              <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-12rem)]">
+                {adventures
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime(),
+                  )
+                  .map((adv) => {
+                    const isActive = adv.id === currentId;
+                    const shortTitle =
+                      adv.taskBrief?.trim() || adv.title.trim() || "未命名";
+                    const dateLabel = adv.dateKey;
+                    const totalWeight = adv.subTasks.reduce(
+                      (sum, t) => sum + (t.weight > 0 ? t.weight : 1),
+                      0,
+                    );
+                    const completedWeight = adv.subTasks.reduce(
+                      (sum, t) =>
+                        sum +
+                        (t.completed ? (t.weight > 0 ? t.weight : 1) : 0),
+                      0,
+                    );
+                    const rate =
+                      totalWeight === 0
+                        ? 0
+                        : Math.round((completedWeight / totalWeight) * 100);
+
+                    return (
+                      <button
+                        key={adv.id}
+                        type="button"
+                        onClick={() => setCurrentId(adv.id)}
+                        className={`w-full flex flex-col justify-between rounded-xl border px-3 py-2 text-left text-[11px] shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(146,88,36,0.45)] ${
+                          isActive
+                            ? "border-amber-500 bg-[#fef3c7]"
+                            : "border-amber-200/80 bg-[#f8e7c7]/90"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold text-amber-900 line-clamp-1 flex-1">
+                            {shortTitle}
+                          </span>
+                          <span className="rounded bg-amber-100/80 px-1 py-0.5 text-[10px] text-amber-900">
+                            {rate}%
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-[10px] text-amber-900/80">
+                          <span>{dateLabel}</span>
+                          <span>
+                            {adv.subTasks.filter((t) => t.completed).length}/
+                            {adv.subTasks.length || 0}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
